@@ -4,19 +4,15 @@ import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:pfview_download_flutter/appToast.dart';
-import 'package:pfview_download_flutter/loaderComponent.dart';
-import 'package:pfview_download_flutter/testingPackageViewModel.dart';
 import 'package:pfview_download_flutter/validateComponent.dart';
-import 'package:provider/provider.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:dio/dio.dart';
 
-void main() {
+/* void main() {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
@@ -31,26 +27,19 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider<PDFViewDownloadViewModel>(
-          create: (_) => PDFViewDownloadViewModel(),
-        ),
-      ],
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        title: "PDF Download View",
-        home: PDFViewDownload(),
-        builder: (context, child) {
-          return MediaQuery(
-            child: child ?? Container(),
-            data: MediaQuery.of(context).copyWith(textScaleFactor: 1.0),
-          );
-        },
-      ),
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: "PDF Download View",
+      home: PDFViewDownload(),
+      builder: (context, child) {
+        return MediaQuery(
+          child: child ?? Container(),
+          data: MediaQuery.of(context).copyWith(textScaleFactor: 1.0),
+        );
+      },
     );
   }
-}
+} */
 
 class PDFViewDownload extends StatefulWidget {
   final String? url;
@@ -69,7 +58,7 @@ class PDFViewDownload extends StatefulWidget {
 }
 
 class _PDFViewDownloadState extends State<PDFViewDownload> {
-  @override
+  /* @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -77,39 +66,30 @@ class _PDFViewDownloadState extends State<PDFViewDownload> {
           Provider.of<PDFViewDownloadViewModel>(context, listen: false);
       pdfViewdownloadViewModel.setIsLoadingStatus(true);
     });
-  }
+  } */
 
   @override
   Widget build(BuildContext context) {
-    final pdfViewdownloadViewModel =
-        Provider.of<PDFViewDownloadViewModel>(context);
-    return Stack(
-      children: [
-        Scaffold(
-          body: SfPdfViewer.network(
-            widget.url?.trim() ?? '',
-            /*  onDocumentLoaded: widget.onDocumentLoaded,
-            onDocumentLoadFailed: widget.onDocumentLoadFailed, */
-            onDocumentLoadFailed: (e) {
-              pdfViewdownloadViewModel.setIsLoadingStatus(false);
-              print(e);
-            },
-            onDocumentLoaded: (p0) {
-              pdfViewdownloadViewModel.setIsLoadingStatus(false);
-            },
-          ),
-          floatingActionButton: FloatingActionButton(
-            onPressed: () async {
-              String fileName = extractFileNameFromUrl(widget.url ?? '');
-              await savePdf(widget.url ?? '', "${fileName}.pdf", context,
-                  pdfViewdownloadViewModel);
-            },
-            tooltip: 'Download',
-            child: const Icon(Icons.download),
-          ),
-        ),
-        if (pdfViewdownloadViewModel.isLoading) LoaderComponent()
-      ],
+    /*  final pdfViewdownloadViewModel =
+        Provider.of<PDFViewDownloadViewModel>(context); */
+    return Scaffold(
+      body: SfPdfViewer.network(
+        widget.url?.trim() ?? '',
+        onDocumentLoaded: widget.onDocumentLoaded,
+        onDocumentLoadFailed: widget.onDocumentLoadFailed,
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          String fileName = extractFileNameFromUrl(widget.url ?? '');
+          await savePdf(
+            widget.url ?? '',
+            "${fileName}.pdf",
+            context,
+          );
+        },
+        tooltip: 'Download',
+        child: const Icon(Icons.download),
+      ),
     );
   }
 
@@ -124,9 +104,11 @@ class _PDFViewDownloadState extends State<PDFViewDownload> {
     }
   }
 
-  Future<void> downloadFile(String url, String baseFileName, context,
-      PDFViewDownloadViewModel pdfViewdownloadViewModel) async {
-    pdfViewdownloadViewModel.setIsLoadingStatus(true);
+  Future<void> downloadFile(
+    String url,
+    String baseFileName,
+    context,
+  ) async {
     Directory? externalDir;
     if (Platform.isIOS) {
       externalDir = await getApplicationDocumentsDirectory();
@@ -151,14 +133,10 @@ class _PDFViewDownloadState extends State<PDFViewDownload> {
         var percentage = actualBytes.abs() / totalBytes.abs() * 100;
 
         if (percentage < 100) {
-          pdfViewdownloadViewModel.setIsLoadingStatus(true);
-        } else {
-          pdfViewdownloadViewModel.setIsLoadingStatus(false);
-        }
+        } else {}
       });
       AppToast().showToast("$fileName is downloaded in Download Folder");
     } on DioException catch (e) {
-      pdfViewdownloadViewModel.setIsLoadingStatus(false);
       if (e.response?.statusCode == 404) {
         print('Error downloading file: File not found');
       } else {
@@ -166,15 +144,17 @@ class _PDFViewDownloadState extends State<PDFViewDownload> {
       }
       return null;
     } catch (error) {
-      pdfViewdownloadViewModel.setIsLoadingStatus(false);
       AppToast().showToast('Error downloading file: $error');
       return null;
     }
     print('File downloaded to $filePath');
   }
 
-  savePdf(String url, String baseFileName, BuildContext context,
-      PDFViewDownloadViewModel pdfViewdownloadViewModel) async {
+  savePdf(
+    String url,
+    String baseFileName,
+    BuildContext context,
+  ) async {
     if (Platform.isAndroid) {
       final plugin = DeviceInfoPlugin();
       final android = await plugin.androidInfo;
@@ -183,13 +163,11 @@ class _PDFViewDownloadState extends State<PDFViewDownload> {
           ? await Permission.storage.request()
           : PermissionStatus.granted;
       if (status.isGranted) {
-        pdfViewdownloadViewModel.setIsLoadingStatus(true);
-        downloadFile(url, baseFileName, context, pdfViewdownloadViewModel);
+        downloadFile(url, baseFileName, context);
       } else {
         PermissionStatus status = await Permission.storage.request();
         if (status.isGranted) {
-          pdfViewdownloadViewModel.setIsLoadingStatus(true);
-          downloadFile(url, baseFileName, context, pdfViewdownloadViewModel);
+          downloadFile(url, baseFileName, context);
         } else {
           showCupertinoDialog(
             context: context,
@@ -209,13 +187,11 @@ class _PDFViewDownloadState extends State<PDFViewDownload> {
     } else if (Platform.isIOS) {
       PermissionStatus status = await Permission.photos.request();
       if (status.isGranted) {
-        pdfViewdownloadViewModel.setIsLoadingStatus(true);
-        downloadFile(url, baseFileName, context, pdfViewdownloadViewModel);
+        downloadFile(url, baseFileName, context);
       } else {
         PermissionStatus status = await Permission.photos.request();
         if (status.isGranted) {
-          pdfViewdownloadViewModel.setIsLoadingStatus(true);
-          downloadFile(url, baseFileName, context, pdfViewdownloadViewModel);
+          downloadFile(url, baseFileName, context);
         } else {
           showCupertinoDialog(
             context: context,
@@ -233,7 +209,7 @@ class _PDFViewDownloadState extends State<PDFViewDownload> {
         }
       }
     } else {
-      downloadFile(url, baseFileName, context, pdfViewdownloadViewModel);
+      downloadFile(url, baseFileName, context);
     }
   }
 }
