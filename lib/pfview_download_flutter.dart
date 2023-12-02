@@ -5,35 +5,53 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:pfview_download_flutter/appToast.dart';
+import 'package:pfview_download_flutter/loaderComponent.dart';
+import 'package:pfview_download_flutter/testingPackageViewModel.dart';
 import 'package:pfview_download_flutter/validateComponent.dart';
+import 'package:provider/provider.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:dio/dio.dart';
-import 'package:flutter_easyloading/flutter_easyloading.dart';
 
 class PDFViewDownload extends StatelessWidget {
   final String? url;
-  PDFViewDownload({super.key, this.url});
+  final void Function(PdfDocumentLoadedDetails)? onDocumentLoaded;
+  final void Function(PdfDocumentLoadFailedDetails)? onDocumentLoadFailed;
+  final void Function()? onPressed;
+  PDFViewDownload(
+      {super.key,
+      this.url,
+      this.onDocumentLoaded,
+      this.onDocumentLoadFailed,
+      this.onPressed});
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SfPdfViewer.network(
-        url?.trim() ?? '',
-        onDocumentLoadFailed: (details) {
-          print("details ::: ${details.description}, ${details.error}");
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          print("url :: ${url}");
-          String fileName = extractFileNameFromUrl(url ?? '');
-          await savePdf(url ?? '', "${fileName}.pdf", context);
-        },
-        tooltip: 'Download',
-        child: const Icon(Icons.download),
-      ),
+    final pdfViewdownloadViewModel =
+        Provider.of<PDFViewDownloadViewModel>(context);
+    return Stack(
+      children: [
+        Scaffold(
+          body: SfPdfViewer.network(
+            url?.trim() ?? '',
+            onDocumentLoaded: onDocumentLoaded,
+            onDocumentLoadFailed: onDocumentLoadFailed,
+          ),
+          floatingActionButton: FloatingActionButton(
+            onPressed: onPressed /* () async {
+              String fileName = extractFileNameFromUrl(widget.url ?? '');
+              await savePdf(widget.url ?? '', "${fileName}.pdf", context,
+                  pdfViewdownloadViewModel);
+            }, */
+            ,
+            tooltip: 'Download',
+            child: const Icon(Icons.download),
+          ),
+        ),
+        if (pdfViewdownloadViewModel.isLoading) LoaderComponent()
+      ],
     );
   }
 
@@ -48,8 +66,9 @@ class PDFViewDownload extends StatelessWidget {
     }
   }
 
-  Future<void> downloadFile(String url, String baseFileName, context) async {
-    EasyLoading.show(status: 'loading...', maskType: EasyLoadingMaskType.black);
+  Future<void> downloadFile(String url, String baseFileName, context,
+      PDFViewDownloadViewModel pdfViewdownloadViewModel) async {
+    pdfViewdownloadViewModel.setIsLoadingStatus(true);
     Directory? externalDir;
     if (Platform.isIOS) {
       externalDir = await getApplicationDocumentsDirectory();
@@ -74,14 +93,14 @@ class PDFViewDownload extends StatelessWidget {
         var percentage = actualBytes.abs() / totalBytes.abs() * 100;
 
         if (percentage < 100) {
-          EasyLoading.showProgress(percentage, status: "Downloading...");
+          pdfViewdownloadViewModel.setIsLoadingStatus(true);
         } else {
-          EasyLoading.dismiss();
-          AppToast().showToast("$fileName is downloaded in Download Folder");
+          pdfViewdownloadViewModel.setIsLoadingStatus(false);
         }
       });
+      AppToast().showToast("$fileName is downloaded in Download Folder");
     } on DioException catch (e) {
-      EasyLoading.dismiss();
+      pdfViewdownloadViewModel.setIsLoadingStatus(false);
       if (e.response?.statusCode == 404) {
         print('Error downloading file: File not found');
       } else {
@@ -89,14 +108,15 @@ class PDFViewDownload extends StatelessWidget {
       }
       return null;
     } catch (error) {
-      EasyLoading.dismiss();
+      pdfViewdownloadViewModel.setIsLoadingStatus(false);
       AppToast().showToast('Error downloading file: $error');
       return null;
     }
     print('File downloaded to $filePath');
   }
 
-  savePdf(String url, String baseFileName, BuildContext context) async {
+  savePdf(String url, String baseFileName, BuildContext context,
+      PDFViewDownloadViewModel pdfViewdownloadViewModel) async {
     if (Platform.isAndroid) {
       final plugin = DeviceInfoPlugin();
       final android = await plugin.androidInfo;
@@ -105,13 +125,13 @@ class PDFViewDownload extends StatelessWidget {
           ? await Permission.storage.request()
           : PermissionStatus.granted;
       if (status.isGranted) {
-        EasyLoading.show();
-        downloadFile(url, baseFileName, context);
+        pdfViewdownloadViewModel.setIsLoadingStatus(true);
+        downloadFile(url, baseFileName, context, pdfViewdownloadViewModel);
       } else {
         PermissionStatus status = await Permission.storage.request();
         if (status.isGranted) {
-          EasyLoading.show();
-          downloadFile(url, baseFileName, context);
+          pdfViewdownloadViewModel.setIsLoadingStatus(true);
+          downloadFile(url, baseFileName, context, pdfViewdownloadViewModel);
         } else {
           showCupertinoDialog(
             context: context,
@@ -131,13 +151,13 @@ class PDFViewDownload extends StatelessWidget {
     } else if (Platform.isIOS) {
       PermissionStatus status = await Permission.photos.request();
       if (status.isGranted) {
-        EasyLoading.show();
-        downloadFile(url, baseFileName, context);
+        pdfViewdownloadViewModel.setIsLoadingStatus(true);
+        downloadFile(url, baseFileName, context, pdfViewdownloadViewModel);
       } else {
         PermissionStatus status = await Permission.photos.request();
         if (status.isGranted) {
-          EasyLoading.show();
-          downloadFile(url, baseFileName, context);
+          pdfViewdownloadViewModel.setIsLoadingStatus(true);
+          downloadFile(url, baseFileName, context, pdfViewdownloadViewModel);
         } else {
           showCupertinoDialog(
             context: context,
@@ -155,7 +175,7 @@ class PDFViewDownload extends StatelessWidget {
         }
       }
     } else {
-      downloadFile(url, baseFileName, context);
+      downloadFile(url, baseFileName, context, pdfViewdownloadViewModel);
     }
   }
 }
