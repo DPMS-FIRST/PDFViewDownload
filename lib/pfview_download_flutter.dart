@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:pfview_download_flutter/appToast.dart';
 import 'package:pfview_download_flutter/loaderComponent.dart';
 import 'package:pfview_download_flutter/testingPackageViewModel.dart';
@@ -15,7 +16,43 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:dio/dio.dart';
 
-class PDFViewDownload extends StatelessWidget {
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]).then((value) {
+    runApp(MyApp());
+  });
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<PDFViewDownloadViewModel>(
+          create: (_) => PDFViewDownloadViewModel(),
+        ),
+      ],
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: "PDF Download View",
+        home: PDFViewDownload(),
+        builder: (context, child) {
+          return MediaQuery(
+            child: child ?? Container(),
+            data: MediaQuery.of(context).copyWith(textScaleFactor: 1.0),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class PDFViewDownload extends StatefulWidget {
   final String? url;
   final void Function(PdfDocumentLoadedDetails)? onDocumentLoaded;
   final void Function(PdfDocumentLoadFailedDetails)? onDocumentLoadFailed;
@@ -28,6 +65,21 @@ class PDFViewDownload extends StatelessWidget {
       this.onPressed});
 
   @override
+  State<PDFViewDownload> createState() => _PDFViewDownloadState();
+}
+
+class _PDFViewDownloadState extends State<PDFViewDownload> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final pdfViewdownloadViewModel =
+          Provider.of<PDFViewDownloadViewModel>(context, listen: false);
+      pdfViewdownloadViewModel.setIsLoadingStatus(true);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final pdfViewdownloadViewModel =
         Provider.of<PDFViewDownloadViewModel>(context);
@@ -35,17 +87,23 @@ class PDFViewDownload extends StatelessWidget {
       children: [
         Scaffold(
           body: SfPdfViewer.network(
-            url?.trim() ?? '',
-            onDocumentLoaded: onDocumentLoaded,
-            onDocumentLoadFailed: onDocumentLoadFailed,
+            widget.url?.trim() ?? '',
+            /*  onDocumentLoaded: widget.onDocumentLoaded,
+            onDocumentLoadFailed: widget.onDocumentLoadFailed, */
+            onDocumentLoadFailed: (e) {
+              pdfViewdownloadViewModel.setIsLoadingStatus(false);
+              print(e);
+            },
+            onDocumentLoaded: (p0) {
+              pdfViewdownloadViewModel.setIsLoadingStatus(false);
+            },
           ),
           floatingActionButton: FloatingActionButton(
-            onPressed: onPressed /* () async {
+            onPressed: () async {
               String fileName = extractFileNameFromUrl(widget.url ?? '');
               await savePdf(widget.url ?? '', "${fileName}.pdf", context,
                   pdfViewdownloadViewModel);
-            }, */
-            ,
+            },
             tooltip: 'Download',
             child: const Icon(Icons.download),
           ),
